@@ -134,6 +134,7 @@ $ mpirun -np 4 \
     -H localhost:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 
@@ -144,6 +145,7 @@ $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 
@@ -162,6 +164,32 @@ to Keras 2.1.2, or downgrade to Keras 2.0.8.
 Horovod supports Estimator API and regular TensorFlow in similar ways.
 
 See a full training [example](examples/tensorflow_mnist_estimator.py).
+
+## mpi4py
+
+Horovod supports mixing and matching Horovod collectives with other MPI libraries, such as [mpi4py](mpi4py.scipy.org),
+provided that the MPI was built with multi-threading support.
+
+You can check for MPI multi-threading support by querying the `hvd.mpi_threads_supported()` function.
+
+**Note**: Make sure that MPI library will **NOT** re-initialize MPI.  For example:
+
+```python
+import horovod.tensorflow as hvd
+
+# Initialize Horovod
+hvd.init()
+
+# Verify that MPI multi-threading is supported.
+assert hvd.mpi_threads_supported()
+
+# Make sure MPI is not re-initialized.
+import mpi4py.rc
+mpi4py.rc.initialize = False
+
+from mpi4py import MPI
+assert hvd.size() == MPI.COMM_WORLD.Get_size()
+```
 
 ## Inference
 
@@ -191,12 +219,26 @@ See [here](docs/timeline.md) for full details and usage instructions.
 See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
 if you can't find an answer.
 
+### Citation
+
+Please cite Horovod in your publications if it helps your research:
+
+```
+@article{sergeev2018horovod,
+  Author = {Alexander Sergeev and Mike Del Balso},
+  Journal = {arXiv preprint arXiv:1802.05799},
+  Title = {Horovod: fast and easy distributed deep learning in {TensorFlow}},
+  Year = {2018}
+}
+```
+
 ### Publications
 
 1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
 Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 2. Sergeev, A. (2017) *Horovod - Distributed TensorFlow Made Easy*. Retrieved from
 [https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy](https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy)
+3. Sergeev, A., Del Balso, M. (2018) *Horovod: fast and easy distributed deep learning in TensorFlow*. [arXiv:1802.05799](https://arxiv.org/abs/1802.05799)
 
 ### References
 
