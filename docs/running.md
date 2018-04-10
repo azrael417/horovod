@@ -9,6 +9,11 @@ Starting with the Open MPI 3, it's important to add the `-bind-to none` and `-ma
 specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance). `-map-by slot`
 allows you to have a mixture of different NUMA configurations because the default behavior is to bind to the socket.
 
+`-mca pml ob1` and `-mca btl ^openib` flags force the use of TCP for MPI communication.  This avoids many multiprocessing
+issues that Open MPI has with RDMA which typically result in segmentation faults.  Using TCP for MPI does not have
+noticeable performance impact since most of the heavy communication is done by NCCL, which will use RDMA via RoCE or
+InfiniBand if they're available (see [Horovod on GPU](gpus.md)).
+
 With the `-x` option you can specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all
 the workers.
 
@@ -18,7 +23,8 @@ the workers.
 $ mpirun -np 4 \
     -H localhost:4 \
     -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 
@@ -28,28 +34,39 @@ $ mpirun -np 4 \
 $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 
-3. If you have RoCE or InfiniBand, we found that the `pml` and `btl_openib_receive_queues` parameters improve
-performance a lot:
+### Hangs due to SSH issues
+
+The host where `mpirun` is executed must be able to SSH to all other hosts without any prompts.
+
+If `mpirun` hangs without any output, verify that you can ssh to every other server without entering a password or
+answering questions like this:
+
+```
+The authenticity of host '<hostname> (<ip address>)' can't be established.
+RSA key fingerprint is xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx.
+Are you sure you want to continue connecting (yes/no)?
+```
+
+To learn more about setting up passwordless authentication, see [this page](http://www.linuxproblem.org/art_9.html).
+
+To avoid `The authenticity of host '<hostname> (<ip address>)' can't be established` prompts, add all the hosts to
+the `~/.ssh/known_hosts` file using `ssh-keyscan`:
 
 ```bash
-$ mpirun -np 16 \
-    -H server1:4,server2:4,server3:4,server4:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-    -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
-    python train.py
+$ ssh-keyscan -t rsa,dsa server1 server2 > ~/.ssh/known_hosts
 ```
 
 ### Hangs due to non-routed network interfaces
 
 Having network interfaces that are not routed can cause Open MPI to hang. An example of such interface is `docker0`.
 
-If you see non-routed interfaces (like `docker0`) in the output of `ifconfig`, you should tell Open MPI to not use them
-via the `-mca btl_tcp_if_exclude <interface>[,<interface>]` parameter.
+If you see non-routed interfaces (like `docker0`) in the output of `ifconfig`, you should tell Open MPI and NCCL to not
+use them via the `-mca btl_tcp_if_exclude <interface>[,<interface>]` and `NCCL_SOCKET_IFNAME=^<interface>` parameters.
 
 ```bash
 $ ifconfig
@@ -93,7 +110,9 @@ For example:
 $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-    -mca btl_tcp_if_exclude lo,docker0 \ 
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+    -x NCCL_SOCKET_IFNAME=^docker0 \
+    -mca pml ob1 -mca btl ^openib \
+    -mca btl_tcp_if_exclude lo,docker0 \
     python train.py
 ```

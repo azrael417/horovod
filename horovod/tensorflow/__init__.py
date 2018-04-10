@@ -31,13 +31,16 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from horovod.tensorflow.mpi_ops import size
-from horovod.tensorflow.mpi_ops import rank
-from horovod.tensorflow.mpi_ops import local_rank
+from horovod.common import init
+from horovod.common import size
+from horovod.common import local_size
+from horovod.common import rank
+from horovod.common import local_rank
+from horovod.common import mpi_threads_supported
+
 from horovod.tensorflow.mpi_ops import allgather
 from horovod.tensorflow.mpi_ops import broadcast
 from horovod.tensorflow.mpi_ops import _allreduce
-from horovod.tensorflow.mpi_ops import init
 
 
 def allreduce(tensor, average=True, device_dense='', device_sparse=''):
@@ -116,7 +119,7 @@ class BroadcastGlobalVariablesHook(tf.train.SessionRunHook):
         self.device = device
 
     def begin(self):
-        if not self.bcast_op:
+        if not self.bcast_op or self.bcast_op.graph != tf.get_default_graph():
             with tf.device(self.device):
                 self.bcast_op = broadcast_global_variables(self.root_rank)
 

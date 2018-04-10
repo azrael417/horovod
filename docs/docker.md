@@ -20,12 +20,13 @@ After the container is built, run it using [nvidia-docker](https://github.com/NV
 
 ```bash
 $ nvidia-docker run -it horovod:latest
-root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advances.py
+root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advanced.py
 ```
 
-You may notice that this command does not have a few options recommended in other parts of documentation: 
-`-bind-to none -map-by slot -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH`.  These options are already set by default in the
-Docker container so you don't need to repeat them in the command..
+This command does not have options recommended in other parts of the documentation. 
+`-bind-to none -map-by slot -x NCCL_DEBUG=INFO` options are already set by default in the Docker container so
+you don't need to repeat them in the command.  Options `-x LD_LIBRARY_PATH -x PATH` are not necessary because we assume
+that all the software is installed in the default system location in this Docker image.
 
 If you don't run your container in privileged mode, you may see the following message:
 
@@ -48,7 +49,7 @@ defined in `/root/.ssh/ssh_config` file.
 Primary worker:
 
 ```bash
-host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest
+host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest
 root@c278c88dd552:/examples# mpirun -np 16 -H host1:4,host2:4,host3:4,host4:4 \
     -mca plm_rsh_args "-p 12345" python keras_mnist_advanced.py
 ```
@@ -56,16 +57,16 @@ root@c278c88dd552:/examples# mpirun -np 16 -H host1:4,host2:4,host3:4,host4:4 \
 Secondary workers:
 
 ```bash
-host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest \
+host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
     bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 ```
 
 ```bash
-host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest \
+host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
     bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 ```
 
 ```bash
-host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest \
+host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
     bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 ```
